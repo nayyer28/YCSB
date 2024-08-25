@@ -430,6 +430,10 @@ public final class Client {
         DB db;
         try {
           db = DBFactory.newDB(dbname, props, tracer);
+          Properties newProps = (Properties)props.clone();
+          newProps.setProperty("threadId", Integer.toString(threadid));
+          db.setProperties(newProps);
+          // System.out.println("ThreadId: " + db.getThreadId() + " db:" + db);
           // addExpectedOpsToRedis(db, dotransactions);
         } catch (UnknownDBException e) {
           System.out.println("Unknown DB " + dbname);

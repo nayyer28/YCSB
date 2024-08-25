@@ -29,17 +29,21 @@ import site.ycsb.DB;
 import site.ycsb.DBException;
 import site.ycsb.Status;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.Vector;
 
 import queryMessage.Message;
 import queryMessage.Message.Query;
+import responseMessage.ResponseOuterClass.Response;
 
 /**
  * YCSB binding for <a href="http://redis.io/">Redis</a>.
@@ -49,7 +53,6 @@ import queryMessage.Message.Query;
 public class RedisClient extends DB {
 
   public static final String INDEX_KEY = "_indices";
-
   private int moduBftClientPort = 10000;
 
   private Socket activeConnection;
@@ -57,8 +60,14 @@ public class RedisClient extends DB {
   private OutputStream out;
   private InputStream in;
 
+  private int tId;
+
   public void init() throws DBException {
     try {
+      Properties props = getProperties();
+      tId = Integer.parseInt(props.getProperty("threadId"));
+      moduBftClientPort += tId;
+      //System.out.println("Thread: " + tId + " db: " + this + " modubft port: " + moduBftClientPort);
       activeConnection = new Socket("localhost", moduBftClientPort);
       out = activeConnection.getOutputStream();
       in = activeConnection.getInputStream();
@@ -85,7 +94,7 @@ public class RedisClient extends DB {
   @Override
   public Status read(String table, String key, Set<String> fields,
       Map<String, ByteIterator> result) {
-    Status resp;
+    Response resp;
     if (fields == null) {
       resp = sendQuery("HGETALL", key);
     } else {
@@ -99,7 +108,11 @@ public class RedisClient extends DB {
       }
       resp = sendQuery(args);
     }
-    return resp;
+    if (resp.getResultCount() > 0) {
+      return Status.OK;
+    } else {
+      return Status.ERROR;
+    }
   }
 
   @Override
@@ -113,23 +126,38 @@ public class RedisClient extends DB {
       args[index++] = entry.getKey();
       args[index++] = entry.getValue().toString();
     }
-    if (sendQuery(args) == Status.OK) {
-      Status resp = sendQuery("ZADD", INDEX_KEY, Double.toString(hash(key)), key);
-      return resp;
+
+    Response respHmset = sendQuery(args);
+
+    /*
+     * System.out.println("ThreadId: " + getThreadId() + " hmset query: " +
+     * Arrays.toString(args) + " respHmset result: "
+     * + respHmset.getResultList());
+     */
+
+    if (respHmset.getResult(0).equals("OK")) {
+      sendQuery("ZADD", INDEX_KEY, Double.toString(hash(key)), key);
+      return Status.OK;
+    } else {
+      // System.out.println("ThreadId:" + getThreadId() + "returning Status.ERROR");
+      return Status.ERROR;
     }
-    return Status.ERROR;
 
   }
 
   @Override
   public Status delete(String table, String key) {
 
-    if (sendQuery("DEL", key) == Status.OK) {
-      Status resp = sendQuery("ZREM", key);
-      return resp;
-    }
+    Response respDel = sendQuery("DEL", key);
 
+    if (Integer.parseInt(respDel.getResult(0)) == 0) {
+      Response respZrem = sendQuery("ZREM", key);
+      if (Integer.parseInt(respZrem.getResult(0)) == 0) {
+        return Status.OK;
+      }
+    }
     return Status.ERROR;
+
   }
 
   @Override
@@ -143,8 +171,12 @@ public class RedisClient extends DB {
       args[index++] = entry.getKey();
       args[index++] = entry.getValue().toString();
     }
-    Status resp = sendQuery(args);
-    return resp;
+    Response resp = sendQuery(args);
+    if (resp.getResultCount() > 0 && resp.getResult(0).equals("OK")) {
+      return Status.OK;
+    } else {
+      return Status.ERROR;
+    }
 
   }
 
@@ -154,23 +186,21 @@ public class RedisClient extends DB {
     throw new UnsupportedOperationException("Scan is not offered yet");
   }
 
-  private Status sendQuery(String... args) {
+  private Response sendQuery(String... args) {
 
     try {
+      //System.out.println("sendQuery in thread: " + tId);
       byte[] msg = transformArgsToProtoMessage(args);
 
       byte[] length = ByteBuffer.allocate(4).putInt(msg.length).array();
       out.write(length);
       out.write(msg);
       out.flush();
-      if (checkStatus()) {
-        return Status.OK;
-      }
-      return Status.ERROR;
+      return getResponse(args);
 
     } catch (Exception e) {
       e.printStackTrace();
-      return Status.ERROR;
+      return Response.newBuilder().build();
     }
   }
 
@@ -184,19 +214,61 @@ public class RedisClient extends DB {
     return data;
   }
 
-  private boolean checkStatus() {
-    try {
-      int response;
-      while ((response = in.read()) != -1) {
-        if (response == 1) {
-          return true;
+  /*
+   * private boolean checkStatus() {
+   * try {
+   * int response;
+   * while ((response = in.read()) != -1) {
+   * if (response == 1) {
+   * return true;
+   * }
+   * }
+   * return false;
+   * } catch (Exception e) {
+   * e.printStackTrace();
+   * return false;
+   * }
+   * }
+   */
+
+  private Response getResponse(String... args) throws IOException {
+    byte[] lengthBuf = new byte[4];
+    int bytesRead = 0;
+
+    while (bytesRead < 4) {
+      int result = in.read(lengthBuf, bytesRead, 4 - bytesRead);
+      if (result == -1) {
+        if (bytesRead == 0) {
+          return null; // end of stream
+        } else {
+          throw new IOException("Unexpected end of stream");
         }
       }
-      return false;
-    } catch (Exception e) {
-      e.printStackTrace();
-      return false;
+      bytesRead += result;
     }
+    int length = ByteBuffer.wrap(lengthBuf).getInt();
+    if (length == 0) {
+      throw new IOException("response size can't be 0");
+    }
+    byte[] messageBytes = new byte[length];
+
+    bytesRead = 0;
+
+    while (bytesRead < length) {
+      int result = in.read(messageBytes, bytesRead, length);
+      if (result == -1) {
+        throw new IOException("Unexpected end of stream");
+      }
+      bytesRead += result;
+    }
+    Response response = Response.parseFrom(messageBytes);
+    /*
+     * System.out.println("ThreadId: " + getThreadId() + "OP: " +
+     * Arrays.toString(args).substring(0, 20)
+     * + " response length: " + length + " response: " + response);
+     */
+    return response;
+
   }
 
 }
