@@ -443,8 +443,6 @@ public final class Client {
 
         int threadopcount = opcount / threadcount;
 
-        props.setProperty("expectedOps", "" + threadopcount);
-
         // ensure correct number of operations, in case opcount is not a multiple of
         // threadcount
         if (threadid < opcount % threadcount) {
@@ -471,23 +469,6 @@ public final class Client {
         .conf(getHTraceConfiguration(props))
         .build();
   }
-
-  /*
-   * private static void addExpectedOpsToRedis(DB db, boolean dotransactions) {
-   * try {
-   * Class<?> redisClientClass = Class.forName("site.ycsb.redis.RedisClient");
-   * if (redisClientClass.isInstance(db)) {
-   * java.lang.reflect.Field expectedOpsField =
-   * redisClientClass.getDeclaredField("expectedOps");
-   * expectedOpsField.setAccessible(true);
-   * expectedOpsField.setInt(db, dotransactions ? 1000 : 2000);
-   * }
-   * } catch (ClassNotFoundException | NoSuchFieldException |
-   * IllegalAccessException e) {
-   * e.printStackTrace();
-   * }
-   * }
-   */
 
   private static void initWorkload(Properties props, Thread warningthread, Workload workload, Tracer tracer) {
     try {

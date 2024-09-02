@@ -34,7 +34,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -53,7 +52,7 @@ import responseMessage.ResponseOuterClass.Response;
 public class RedisClient extends DB {
 
   public static final String INDEX_KEY = "_indices";
-  private int moduBftClientPort = 10000;
+  private int PBBClientPort = 10000;
 
   private Socket activeConnection;
 
@@ -66,14 +65,13 @@ public class RedisClient extends DB {
     try {
       Properties props = getProperties();
       tId = Integer.parseInt(props.getProperty("threadId"));
-      moduBftClientPort += tId;
-      //System.out.println("Thread: " + tId + " db: " + this + " modubft port: " + moduBftClientPort);
-      activeConnection = new Socket("localhost", moduBftClientPort);
+      PBBClientPort += tId;
+      activeConnection = new Socket("localhost", PBBClientPort);
       out = activeConnection.getOutputStream();
       in = activeConnection.getInputStream();
     } catch (Exception e) {
       throw new DBException(
-          String.format("Failed to establish  connection with modubft client at port %d", moduBftClientPort), e);
+          String.format("Failed to establish  connection with PBB client at port %d", PBBClientPort), e);
     }
   }
 
@@ -129,17 +127,10 @@ public class RedisClient extends DB {
 
     Response respHmset = sendQuery(args);
 
-    /*
-     * System.out.println("ThreadId: " + getThreadId() + " hmset query: " +
-     * Arrays.toString(args) + " respHmset result: "
-     * + respHmset.getResultList());
-     */
-
     if (respHmset.getResult(0).equals("OK")) {
       sendQuery("ZADD", INDEX_KEY, Double.toString(hash(key)), key);
       return Status.OK;
     } else {
-      // System.out.println("ThreadId:" + getThreadId() + "returning Status.ERROR");
       return Status.ERROR;
     }
 
@@ -189,7 +180,6 @@ public class RedisClient extends DB {
   private Response sendQuery(String... args) {
 
     try {
-      //System.out.println("sendQuery in thread: " + tId);
       byte[] msg = transformArgsToProtoMessage(args);
 
       byte[] length = ByteBuffer.allocate(4).putInt(msg.length).array();
@@ -213,23 +203,6 @@ public class RedisClient extends DB {
     byte[] data = query.toByteArray();
     return data;
   }
-
-  /*
-   * private boolean checkStatus() {
-   * try {
-   * int response;
-   * while ((response = in.read()) != -1) {
-   * if (response == 1) {
-   * return true;
-   * }
-   * }
-   * return false;
-   * } catch (Exception e) {
-   * e.printStackTrace();
-   * return false;
-   * }
-   * }
-   */
 
   private Response getResponse(String... args) throws IOException {
     byte[] lengthBuf = new byte[4];
@@ -262,11 +235,6 @@ public class RedisClient extends DB {
       bytesRead += result;
     }
     Response response = Response.parseFrom(messageBytes);
-    /*
-     * System.out.println("ThreadId: " + getThreadId() + "OP: " +
-     * Arrays.toString(args).substring(0, 20)
-     * + " response length: " + length + " response: " + response);
-     */
     return response;
 
   }
