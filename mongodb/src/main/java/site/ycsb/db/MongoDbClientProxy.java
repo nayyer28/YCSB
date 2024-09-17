@@ -25,8 +25,8 @@ import site.ycsb.DB;
 import site.ycsb.DBException;
 import site.ycsb.Status;
 
-public class MongoDbModubftClient extends DB {
-    private int moduBftClientPort = 10000;
+public class MongoDbClientProxy extends DB {
+    private int proxyPort = 10000;
 
     private Socket activeConnection;
 
@@ -48,13 +48,13 @@ public class MongoDbModubftClient extends DB {
             Properties props = getProperties();
             batchSize = Integer.parseInt(props.getProperty("batchsize", "1"));
             tId = Integer.parseInt(props.getProperty("threadId"));
-            moduBftClientPort += tId;
-            activeConnection = new Socket("localhost", moduBftClientPort);
+            proxyPort += tId;
+            activeConnection = new Socket("localhost", proxyPort);
             out = activeConnection.getOutputStream();
             in = activeConnection.getInputStream();
         } catch (Exception e) {
             throw new DBException(
-                    String.format("Failed to establish  connection with modubft client at port %d", moduBftClientPort),
+                    String.format("Failed to establish  connection with proxy client at port %d", proxyPort),
                     e);
         }
     }

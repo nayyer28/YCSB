@@ -49,10 +49,10 @@
   *
   * See {@code redis/README.md} for details.
   */
- public class RedisModubftClient extends DB {
+ public class RedisClientProxy extends DB {
  
    public static final String INDEX_KEY = "_indices";
-   private int moduBftClientPort = 10000;
+   private int proxyPort = 10000;
  
    private Socket activeConnection;
  
@@ -65,13 +65,13 @@
      try {
        Properties props = getProperties();
        tId = Integer.parseInt(props.getProperty("threadId"));
-       moduBftClientPort += tId;
-       activeConnection = new Socket("localhost", moduBftClientPort);
+       proxyPort += tId;
+       activeConnection = new Socket("localhost", proxyPort);
        out = activeConnection.getOutputStream();
        in = activeConnection.getInputStream();
      } catch (Exception e) {
        throw new DBException(
-           String.format("Failed to establish  connection with modubft client at port %d", moduBftClientPort), e);
+           String.format("Failed to establish  connection with proxy client at port %d", proxyPort), e);
      }
    }
  
