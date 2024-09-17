@@ -295,15 +295,7 @@ def main():
         db_location = "core" if (binding == "basic" or binding == "basicts") else binding
         project = "core" if (binding == "basic" or binding == "basicts") else binding + "-binding"
         db_dir = os.path.join(ycsb_home, db_location)
-        # goes first so we can rely on side-effect of package
-        maven_says = get_classpath_from_maven(project)
-        # TODO when we have a version property, skip the glob
-        cp = find_jars(os.path.join(db_dir, "target"),
-                       project + "*.jar")
-        # alredy in jar:jar:jar form
-        cp.append(maven_says)
-    cp.insert(0, os.path.join(db_dir, "conf"))
-    classpath = os.pathsep.join(cp)
+    classpath="./jars/*"
     if args.classpath:
         classpath = os.pathsep.join([args.classpath, classpath])
 
