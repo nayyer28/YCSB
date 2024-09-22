@@ -105,7 +105,8 @@ DATABASES = {
     "tablestore"   : "site.ycsb.db.tablestore.TableStoreClient",
     "zookeeper"    : "site.ycsb.db.zookeeper.ZKClient",
     "mongodb-proxy" : "site.ycsb.db.MongoDbClientProxy",
-    "redis-proxy"        : "site.ycsb.db.RedisClientProxy"
+    "redis-proxy"        : "site.ycsb.db.RedisClientProxy",
+    "redis-replicaset"        : "site.ycsb.db.RedisReplicasetClient"
 }
 
 OPTIONS = {
