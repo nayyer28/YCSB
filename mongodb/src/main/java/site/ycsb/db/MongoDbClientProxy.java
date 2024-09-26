@@ -318,7 +318,7 @@ public class MongoDbClientProxy extends DB {
         bytesRead = 0;
 
         while (bytesRead < length) {
-            int result = in.read(messageBytes, bytesRead, length);
+            int result = in.read(messageBytes, bytesRead, length - bytesRead);
             if (result == -1) {
                 throw new IOException("Unexpected end of stream");
             }
