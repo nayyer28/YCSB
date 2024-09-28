@@ -38,6 +38,8 @@ import redis.clients.jedis.Protocol;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.HashSet;
@@ -63,6 +65,7 @@ public class RedisClient extends DB {
   public static final String TIMEOUT_PROPERTY = "redis.timeout";
 
   public static final String INDEX_KEY = "_indices";
+  private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
   public void init() throws DBException {
     Properties props = getProperties();
@@ -83,7 +86,7 @@ public class RedisClient extends DB {
       jedis = new JedisCluster(jedisClusterNodes);
     } else {
       String redisTimeout = props.getProperty(TIMEOUT_PROPERTY);
-      if (redisTimeout != null){
+      if (redisTimeout != null) {
         jedis = new Jedis(host, port, Integer.parseInt(redisTimeout));
       } else {
         jedis = new Jedis(host, port);
@@ -123,8 +126,7 @@ public class RedisClient extends DB {
     if (fields == null) {
       StringByteIterator.putAllAsByteIterators(result, jedis.hgetAll(key));
     } else {
-      String[] fieldArray =
-          (String[]) fields.toArray(new String[fields.size()]);
+      String[] fieldArray = (String[]) fields.toArray(new String[fields.size()]);
       List<String> values = jedis.hmget(key, fieldArray);
 
       Iterator<String> fieldIterator = fields.iterator();
@@ -142,8 +144,16 @@ public class RedisClient extends DB {
   @Override
   public Status insert(String table, String key,
       Map<String, ByteIterator> values) {
+    long startTime = System.currentTimeMillis();
+    String startTimestamp = sdf.format(new Date(startTime));
+    System.out.println("Insert operation started at " + startTimestamp);
     if (jedis.hmset(key, StringByteIterator.getStringMap(values))
         .equals("OK")) {
+      long endTime = System.currentTimeMillis();
+
+      // Calculate the elapsed time in milliseconds
+      long elapsedTime = endTime - startTime;
+      System.out.println("HMSET operation took " + elapsedTime + " ms");
       jedis.zadd(INDEX_KEY, hash(key), key);
       return Status.OK;
     }

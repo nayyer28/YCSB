@@ -34,6 +34,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -60,6 +62,8 @@ public class RedisClientProxy extends DB {
   private InputStream in;
 
   private int tId;
+  // Format the start time as a timestamp
+  private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
   public void init() throws DBException {
     try {
@@ -116,6 +120,11 @@ public class RedisClientProxy extends DB {
   @Override
   public Status insert(String table, String key,
       Map<String, ByteIterator> values) {
+    // Record the start time
+    long startTime = System.currentTimeMillis();
+    String startTimestamp = sdf.format(new Date(startTime));
+    System.out.println("Insert operation started at " + startTimestamp);
+
     String[] args = new String[values.size() * 2 + 2];
     args[0] = "HMSET";
     args[1] = key;
@@ -126,7 +135,12 @@ public class RedisClientProxy extends DB {
     }
 
     Response respHmset = sendQuery(args);
+    // Record the end time
+    long endTime = System.currentTimeMillis();
 
+    // Calculate the elapsed time in milliseconds
+    long elapsedTime = endTime - startTime;
+    System.out.println("HMSET operation took " + elapsedTime + " ms");
     if (respHmset.getResult(0).equals("OK")) {
       sendQuery("ZADD", INDEX_KEY, Double.toString(hash(key)), key);
       return Status.OK;
@@ -178,17 +192,21 @@ public class RedisClientProxy extends DB {
   }
 
   private Response sendQuery(String... args) {
-
+    // Record the end time
+    long startTime = System.currentTimeMillis();
+    String startTimestamp = sdf.format(new Date(startTime));
+    System.out.println("Send query started at " + startTimestamp);
     try {
       // System.out.println("sendQuery in thread: " + tId);
       byte[] msg = transformArgsToProtoMessage(args);
-
+      System.out.println("Marshalling took: " + (System.currentTimeMillis() - startTime) + " ms");
       byte[] length = ByteBuffer.allocate(4).putInt(msg.length).array();
       out.write(length);
       out.write(msg);
       out.flush();
-      return getResponse(args);
-
+      Response response = getResponse(args);
+      System.out.println("getting a response after sending took: " + (System.currentTimeMillis() - startTime) + " ms");
+      return response;
     } catch (Exception e) {
       e.printStackTrace();
       return Response.newBuilder().build();
@@ -208,7 +226,9 @@ public class RedisClientProxy extends DB {
   private Response getResponse(String... args) throws IOException {
     byte[] lengthBuf = new byte[4];
     int bytesRead = 0;
-
+    long startTime = System.currentTimeMillis();
+    String startTimestamp = sdf.format(new Date(startTime));
+    System.out.println("Started waiting for response at " + startTimestamp);
     while (bytesRead < 4) {
       int result = in.read(lengthBuf, bytesRead, 4 - bytesRead);
       if (result == -1) {
@@ -220,6 +240,7 @@ public class RedisClientProxy extends DB {
       }
       bytesRead += result;
     }
+    System.out.println("got resp size after waiting: " + (System.currentTimeMillis() - startTime) + " ms");
     int length = ByteBuffer.wrap(lengthBuf).getInt();
     if (length == 0) {
       throw new IOException("response size can't be 0");
@@ -235,7 +256,12 @@ public class RedisClientProxy extends DB {
       }
       bytesRead += result;
     }
+    System.out.println("got response after waiting: " + (System.currentTimeMillis() - startTime) + " ms");
+    System.out.println("got resp after size after: " + (System.currentTimeMillis() - startTime) + " ms");
+    startTime = System.currentTimeMillis();
+    startTimestamp = sdf.format(new Date(startTime));
     Response response = Response.parseFrom(messageBytes);
+    System.out.println("unmarshalling time: " + (System.currentTimeMillis() - startTime) + " ms");
     return response;
 
   }
