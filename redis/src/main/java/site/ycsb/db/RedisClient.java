@@ -144,16 +144,16 @@ public class RedisClient extends DB {
   @Override
   public Status insert(String table, String key,
       Map<String, ByteIterator> values) {
-    long startTime = System.currentTimeMillis();
+    /* long startTime = System.currentTimeMillis();
     String startTimestamp = sdf.format(new Date(startTime));
-    System.out.println("Insert operation started at " + startTimestamp);
+    System.out.println("Insert operation started at " + startTimestamp); */
     if (jedis.hmset(key, StringByteIterator.getStringMap(values))
         .equals("OK")) {
-      long endTime = System.currentTimeMillis();
+      //long endTime = System.currentTimeMillis();
 
       // Calculate the elapsed time in milliseconds
-      long elapsedTime = endTime - startTime;
-      System.out.println("HMSET operation took " + elapsedTime + " ms");
+     /*  long elapsedTime = endTime - startTime;
+      System.out.println("HMSET operation took " + elapsedTime + " ms"); */
       jedis.zadd(INDEX_KEY, hash(key), key);
       return Status.OK;
     }
