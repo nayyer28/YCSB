@@ -22,11 +22,11 @@ LICENSE file.
 		</encoder>
 	</appender>
 
-	<logger name="org.mongodb" level="WARN">
+	<logger name="org.mongodb" level="ERROR">
 		<appender-ref ref="STDOUT"/>
 	</logger>
 
-	<root level="INFO">
+	<root level="ERROR">
 		<appender-ref ref="STDOUT"/>
 	</root>
 </configuration>
